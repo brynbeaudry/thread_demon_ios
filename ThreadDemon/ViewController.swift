@@ -43,6 +43,33 @@ class ViewController: UIViewController {
     let MAX_VALUE = 3000000
 
     //increments the amount of items in the shared memory by 1, when it can
+    func httpDump(add: UInt){
+        
+        //decrement the sem, lock after entering
+        sem.wait(timeout: DispatchTime.distantFuture)
+        
+        //while the data container is full, wait using Ns condition
+        while(!(data.value < MAX_VALUE)){
+            //wait until not full
+            not_full.wait()
+        }
+        //enter critical section
+        
+        //decrement value by 1, change status to consuming
+        data.value? -= UInt(add)
+        data.status = "HTTP PRODUCING"
+        
+        //Update UI Thread, syncronously, so that the background thread doesn't unlock and leave the critical section before the UI is updated. You don't this has to complete before exiting critical region
+        DispatchQueue.main.sync{
+            //
+        }
+        
+        //leave critical section
+        
+        //unlock critical section
+        sem.signal()
+    }
+    
     func produce(add: UInt){
         
         //decrement the sem, lock after entering
@@ -109,11 +136,19 @@ class ViewController: UIViewController {
         //do an http call to get a random number from the internet on a different thread
         //at a timed interval
         
-        for i in 0..<5 {
-            clock.lock(whenCondition: GOT_DATA) //Acquire the lock when GOT_DATA
-            print(i)
-            clock.unlock(withCondition: NO_DATA) //Unlock and set as NO_DATA
+        //dispatch once every x seconds
+        //make a custom timer-based reference to the disptach queue
+        let t = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .background))
+        t.schedule(deadline: .now(), repeating: .seconds(5), leeway: .seconds(1))
+        t.setEventHandler(handler: { print("Define function for getting radnom number from an http request") })
+        var produceOperations : [Operation] = [Operation]()
+        for i in 0..<10{
+            //in here we can set the attribute members of each block operation, like qos and dependancies. Ie arr[0].addDepemndancy(arr[1])!
+            produceOperations.append(BlockOperation(block: {print("Define the operation")}))
         }
+        let prodQ = OperationQueue()
+        prodQ.addOperations(produceOperations)
+        //This executes the queue asynchronously, because adding to the queue executes and changes the default setting to asynchronous.
         
         
     }
